@@ -1,0 +1,30 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      # This is the metric-to-trace pivot, and the two fields below are the
+      # whole of it.
+      #
+      # `name` must be the label the exemplar carries the trace id in. That is
+      # `trace_id`, and it is not a choice made here: it is the constant the
+      # collector's remote-write translator uses. Spelling it traceID or
+      # traceId produces a dashboard that renders exemplars and links nowhere.
+      #
+      # `datasourceUid` must match the uid of the trace data source below.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger
+          urlDisplayLabel: View trace
+
+  - name: Jaeger
+    uid: jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686

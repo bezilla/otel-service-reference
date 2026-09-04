@@ -1,0 +1,10 @@
+# Prometheus receives metrics by remote write from the collector rather than
+# scraping the application. That matches the platform side and means the
+# application needs no /metrics endpoint and no scrape target registration.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# No scrape_configs: everything arrives over the remote-write receiver, which is
+# enabled by the --web.enable-remote-write-receiver flag in docker-compose.yml.
+scrape_configs: []

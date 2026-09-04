@@ -89,7 +89,7 @@ func (c Config) MetricIdentityAttributes() []attribute.KeyValue {
 
 func newResource(ctx context.Context, c Config) (*resource.Resource, error) {
 	r, err := resource.New(ctx,
-		resource.WithFromEnv(),   // OTEL_RESOURCE_ATTRIBUTES still works and wins
+		resource.WithFromEnv(), // OTEL_RESOURCE_ATTRIBUTES still works and wins
 		resource.WithTelemetrySDK(),
 		resource.WithAttributes(c.ResourceAttributes()...),
 	)

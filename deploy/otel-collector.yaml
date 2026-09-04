@@ -1,0 +1,61 @@
+# Collector config for the local stack.
+#
+# This deliberately mirrors the shape of the platform-side collector in the
+# terragrunt reference architecture, INCLUDING what it does not do: there is no
+# resource_to_telemetry_conversion here. That option would copy resource
+# attributes onto every data point and make service_name / service_namespace
+# appear as Prometheus labels without the application doing anything.
+#
+# Leaving it off is the whole point. If this stack set it, the demo would pass
+# while the application stayed broken against the real platform. The labels you
+# see in Prometheus are there because the application put them on the data
+# points, which is exactly what has to be true in production.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  batch:
+    timeout: 5s
+    send_batch_size: 8192
+
+exporters:
+  # Exemplars need no configuration on this exporter either. The remote-write
+  # translator converts OTLP exemplars to Prometheus exemplars whenever they are
+  # present and attaches the trace id under the label `trace_id`. There is no
+  # export_exemplars option; do not go looking for one.
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    tls:
+      insecure: true
+
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  debug:
+    verbosity: normal
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheusremotewrite]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/jaeger]
+  telemetry:
+    logs:
+      level: warn

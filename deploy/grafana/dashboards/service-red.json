@@ -1,0 +1,112 @@
+{
+  "uid": "otel-service-reference",
+  "title": "Service — RED with exemplars",
+  "tags": [
+    "otel",
+    "red",
+    "exemplars"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "p99 latency — click a dot to reach the trace",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Exemplars are the dots. Each one is a real sampled request; clicking it opens that request's trace in Jaeger. This panel queries the raw histogram buckets on purpose -- exemplars are attached to the bucket samples and do not survive recording-rule evaluation, so a panel built on a recorded p99 renders no exemplars however it is configured.",
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 8
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le, service_name) (rate(http_server_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "{{service_name}} p99",
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Request rate",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name, service_namespace) (rate(http_server_request_duration_seconds_count[1m]))",
+          "legendFormat": "{{service_namespace}}/{{service_name}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "5xx ratio",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "The same aggregation the platform's recording rules use: sum by (service_name, service_namespace). If this panel is empty but the rate panel is not, the identity attributes are missing from the metric data points.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name, service_namespace) (rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[1m])) / sum by (service_name, service_namespace) (rate(http_server_request_duration_seconds_count[1m]))",
+          "legendFormat": "{{service_namespace}}/{{service_name}}"
+        }
+      ]
+    }
+  ]
+}
