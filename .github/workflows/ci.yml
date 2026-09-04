@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build · vet · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod   # tracks go.mod; cannot drift from it
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l cmd internal)"
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt-clean:"; echo "$unformatted"; exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: go build
+        run: go build ./...
+      - name: go test
+        run: go test -race ./...
+
+  identity:
+    name: identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The gate checks every commit, so it needs every commit. With the
+          # default shallow clone it would check one and report success.
+          fetch-depth: 0
+      - name: install gitleaks
+        run: |
+          version=8.24.0
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: identity and attribution over all history
+        # The same file the pre-push hook runs, in its --all-history mode. The
+        # hook is per-clone configuration and does not travel with a clone, so
+        # this is the copy nobody can forget to install.
+        run: ./.githooks/pre-push --all-history
+      - name: prove the gate still rejects bad history
+        run: ./.githooks/selftest.sh
