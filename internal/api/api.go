@@ -35,29 +35,6 @@ func tracer() trace.Tracer {
 	return otel.Tracer("github.com/bezilla/otel-service-reference/internal/api")
 }
 
-// identityMiddleware copies service.name and service.namespace onto the metric
-// data points that otelhttp emits.
-//
-// otelhttp's Labeler is the supported way to add attributes to instrumentation
-// metrics: the handler appends labeler.Get() to the metric attributes for the
-// request. The deprecated WithMetricAttributesFn does the same thing and is on
-// its way out.
-//
-// Why this is needed at all is the single least obvious thing in this
-// repository, and it is explained in obs.ResourceAttributes and in the README:
-// resource attributes do not become Prometheus labels, so a platform recording
-// rule that aggregates by (service_name, service_namespace) sees nothing unless
-// these ride on the data point.
-func (s *Server) identityMiddleware(next http.Handler) http.Handler {
-	attrs := s.Cfg.MetricIdentityAttributes()
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if labeler, ok := otelhttp.LabelerFromContext(r.Context()); ok {
-			labeler.Add(attrs...)
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 // Routes builds the API mux, wrapped in otelhttp.
 //
 // otelhttp gives the HTTP-layer span and the http.server.* metrics for free.
@@ -76,7 +53,7 @@ func (s *Server) Routes() http.Handler {
 	// the Labeler it writes to is put into the context by otelhttp's handler.
 	// Wrapping the other way round would add the attributes to a Labeler that
 	// nothing ever reads, and the labels would silently not appear.
-	instrumented := otelhttp.NewHandler(s.identityMiddleware(mux), "http.server",
+	instrumented := otelhttp.NewHandler(obs.MetricIdentityMiddleware(s.Cfg)(mux), "http.server",
 		otelhttp.WithFilter(func(r *http.Request) bool {
 			// Health checks would otherwise dominate both the trace volume and
 			// the request-rate panel with traffic nobody asked about.

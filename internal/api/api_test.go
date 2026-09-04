@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -40,17 +41,25 @@ func collectQuoteMetrics(t *testing.T) metricdata.ResourceMetrics {
 	inj := faults.NewInjector()
 	inj.Set(faults.Config{}) // no injected latency: keep the test fast
 
-	dep := httptest.NewServer(downstream.Handler(inj))
+	cfg := obs.Config{
+		ServiceName:      "quote-api",
+		ServiceNamespace: "platform",
+		ServiceVersion:   "test",
+		Environment:      "test",
+		InstanceID:       "test-1",
+	}
+
+	// Wrapped exactly as cmd/service wraps it. This matters: an earlier version
+	// of this test served the dependency bare, so it emitted no server metrics
+	// at all and the identity assertion below could not see that the real
+	// dependency server was missing its identity attributes. A test whose wiring
+	// differs from production tests the wiring, not the code.
+	dep := httptest.NewServer(
+		otelhttp.NewHandler(obs.MetricIdentityMiddleware(cfg)(downstream.Handler(inj)), "pricing.server"))
 	t.Cleanup(dep.Close)
 
 	srv := &Server{
-		Cfg: obs.Config{
-			ServiceName:      "quote-api",
-			ServiceNamespace: "platform",
-			ServiceVersion:   "test",
-			Environment:      "test",
-			InstanceID:       "test-1",
-		},
+		Cfg:      cfg,
 		Log:      slog.New(slog.DiscardHandler),
 		Pricing:  downstream.NewClient(dep.URL),
 		Injector: inj,
@@ -120,6 +129,12 @@ func TestServiceIdentityIsOnTheDataPoint(t *testing.T) {
 	rm := collectQuoteMetrics(t)
 	h := findHistogram(t, rm, "http.server.request.duration")
 
+	if len(h.DataPoints) == 0 {
+		t.Fatal("no data points to check")
+	}
+	// EVERY data point, including the dependency server's. One server in the
+	// process that skips the middleware produces a series with both labels
+	// empty, which the platform renders as a nameless row on every RED panel.
 	for _, dp := range h.DataPoints {
 		var gotName, gotNS bool
 		for _, kv := range dp.Attributes.ToSlice() {
@@ -131,8 +146,7 @@ func TestServiceIdentityIsOnTheDataPoint(t *testing.T) {
 			}
 		}
 		if !gotName || !gotNS {
-			t.Errorf("data point attrs %v: want service.name and service.namespace present",
-				dp.Attributes.ToSlice())
+			t.Errorf("data point is missing identity attributes: %v", dp.Attributes.ToSlice())
 		}
 	}
 }

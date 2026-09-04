@@ -74,9 +74,16 @@ func run() error {
 	}
 	// The dependency is instrumented too. If it were not, the trace would show
 	// the client span and then stop, and the propagation would be untestable.
+	//
+	// It gets the identity middleware as well. Every otelhttp-wrapped server in
+	// the process needs it: one that skips it emits the same histogram with no
+	// service_name or service_namespace, which the platform aggregates into an
+	// extra series with both labels empty -- a nameless row on every RED panel,
+	// carrying this dependency's latency alongside the real service's.
 	depSrv := &http.Server{
-		Addr:              depAddr,
-		Handler:           otelhttp.NewHandler(downstream.Handler(inj), "pricing.server"),
+		Addr: depAddr,
+		Handler: otelhttp.NewHandler(
+			obs.MetricIdentityMiddleware(cfg)(downstream.Handler(inj)), "pricing.server"),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
