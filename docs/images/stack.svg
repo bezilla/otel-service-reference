@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 520" width="1120" height="520"
+     role="img" aria-labelledby="ttl dsc">
+  <title id="ttl">The application half of the observability boundary, and the platform half it speaks OTLP to</title>
+  <desc id="dsc">This repository owns the service on the left of a labelled application boundary: an
+  otelhttp-wrapped HTTP handler producing automatic server spans and the http.server.request.duration
+  histogram, two hand-rolled spans around the service's own decisions, and a Labeler that puts
+  service.name and service.namespace onto the metric data points. It emits OTLP across the boundary.
+  On the right, not owned here, a collector fans metrics to Prometheus and traces to Jaeger, and
+  Grafana reads both. An exemplar carries a trace id from the latency panel into Jaeger. The same
+  boundary is drawn from the opposite side in the terragrunt reference architecture, where the
+  applications are outside and the collector is the thing owned.</desc>
+
+  <style>
+    /* Same palette and conventions as the terragrunt observability diagram.
+       The one difference is deliberate: there, applications were `ext` and the
+       collector was `own`. Here the ownership is mirrored, because this is the
+       other half of the same boundary. */
+    :root{
+      --bg:#eef1f6; --panel:#fafbfd; --ink:#1f2937; --dim:#4b5563;
+      --own:#2f6fed; --ext:#5b6675; --opt:#a8570a; --pivot:#7241d6;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#141a23; --panel:#1c2531; --ink:#e6eaf1; --dim:#a7b2c2;
+        --own:#74abff; --ext:#98a3b3; --opt:#f0b357; --pivot:#c3a3ff;
+      }
+    }
+    .bg{fill:var(--bg)}
+    text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+         fill:var(--ink)}
+    .h1{font-size:23px;font-weight:700}
+    .h2{font-size:14px;fill:var(--dim)}
+    .zone{font-size:13px;font-weight:700;letter-spacing:.08em}
+    .bt{font-size:15px;font-weight:600}
+    .lbl{font-size:12.5px;fill:var(--dim)}
+    .sm{font-size:11.5px;fill:var(--dim)}
+    .edge{font-size:12px;font-weight:600}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+    .panel{fill:var(--panel)}
+    .own-s{stroke:var(--own);fill:none}
+    .own-f{fill:var(--own);fill-opacity:.07;stroke:var(--own);stroke-opacity:.5}
+    .ext-f{fill:var(--ext);fill-opacity:.08;stroke:var(--ext);stroke-opacity:.5}
+    .t-own{fill:var(--own)} .t-ext{fill:var(--ext)} .t-piv{fill:var(--pivot)}
+    .f-own{fill:var(--own)} .f-ext{fill:var(--ext)} .f-piv{fill:var(--pivot)}
+    .flow{stroke:var(--own);stroke-width:2;fill:none}
+    .flow-ext{stroke:var(--ext);stroke-width:2;fill:none}
+    .flow-piv{stroke:var(--pivot);stroke-width:2;fill:none;stroke-dasharray:3 4}
+    .bound{stroke:var(--ext);stroke-width:2;stroke-dasharray:9 7;fill:none}
+  </style>
+
+  <defs>
+    <marker id="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="f-own"/></marker>
+    <marker id="me" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="f-ext"/></marker>
+    <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="f-piv"/></marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1120" height="520" rx="10"/>
+
+  <text class="h1" x="40" y="42">The application half — the same boundary, from the other side</text>
+  <text class="h2" x="40" y="66">This repository owns everything left of the line. It speaks OTLP across it and shares nothing else.</text>
+
+  <!-- ===================== THIS REPO ===================== -->
+  <rect class="own-f" x="40" y="94" width="452" height="286" rx="12"/>
+  <text class="zone t-own" x="58" y="120">THIS REPO · the service</text>
+
+  <rect class="panel" x="58" y="136" width="416" height="70" rx="8"/>
+  <rect class="own-s" x="58" y="136" width="416" height="70" rx="8"/>
+  <text class="bt" x="74" y="160">otelhttp — automatic</text>
+  <text class="sm" x="74" y="180">server span · http.server.request.duration (unit s)</text>
+  <text class="sm" x="74" y="197">records with the request context, so exemplars attach</text>
+
+  <rect class="panel" x="58" y="218" width="416" height="70" rx="8"/>
+  <rect class="own-s" x="58" y="218" width="416" height="70" rx="8"/>
+  <text class="bt" x="74" y="242">hand-rolled — what the framework cannot know</text>
+  <text class="sm mono" x="74" y="262">pricing.lookup · pricing.apply_discount</text>
+  <text class="sm" x="74" y="279">the spans that say which part of a slow request was slow</text>
+
+  <rect class="panel" x="58" y="300" width="416" height="62" rx="8"/>
+  <rect class="own-s" x="58" y="300" width="416" height="62" rx="8"/>
+  <text class="bt" x="74" y="324">Labeler — identity on the data point</text>
+  <text class="sm mono" x="74" y="344">service.name · service.namespace</text>
+  <text class="sm" x="316" y="344">not only on the Resource</text>
+
+  <!-- ===================== BOUNDARY ===================== -->
+  <path class="bound" d="M516 94 V440"/>
+  <g transform="rotate(-90 516 262)">
+    <text class="zone t-ext" x="516" y="262" text-anchor="middle" dy="-6">APPLICATION BOUNDARY</text>
+    <text class="sm" x="516" y="262" text-anchor="middle" dy="12">OTLP is the whole contract</text>
+  </g>
+  <path class="flow" marker-end="url(#mo)" d="M492 171 H568"/>
+  <text class="edge t-own" x="500" y="163">OTLP</text>
+
+  <!-- ===================== PLATFORM HALF ===================== -->
+  <rect class="ext-f" x="568" y="94" width="512" height="286" rx="12"/>
+  <text class="zone t-ext" x="586" y="120">NOT THIS REPO · the platform half</text>
+
+  <rect class="panel" x="586" y="140" width="180" height="58" rx="8"/>
+  <rect class="own-s" x="586" y="140" width="180" height="58" rx="8" stroke-opacity=".45"/>
+  <text class="bt" x="600" y="164">collector</text>
+  <text class="sm" x="600" y="183">OTLP in · fans out</text>
+
+  <rect class="ext-f" x="826" y="132" width="242" height="52" rx="8"/>
+  <text class="bt" x="840" y="154">Prometheus</text>
+  <text class="sm" x="840" y="172">remote write · exemplar storage</text>
+
+  <rect class="ext-f" x="826" y="206" width="242" height="52" rx="8"/>
+  <text class="bt" x="840" y="228">Jaeger</text>
+  <text class="sm" x="840" y="246">OTLP traces</text>
+
+  <rect class="ext-f" x="826" y="292" width="242" height="52" rx="8"/>
+  <text class="bt" x="840" y="314">Grafana</text>
+  <text class="sm" x="840" y="332">reads both · draws the pivot</text>
+
+  <path class="flow-ext" marker-end="url(#me)" d="M766 158 H826"/>
+  <path class="flow-ext" marker-end="url(#me)" d="M766 180 Q796 180 796 232 H826"/>
+  <path class="flow-ext" marker-end="url(#me)" d="M900 258 V292"/>
+  <path class="flow-ext" marker-end="url(#me)" d="M1000 184 V292"/>
+
+  <path class="flow-piv" marker-end="url(#mp)" d="M1068 318 H1088 V232 H1074"/>
+  <text class="sm t-piv" x="826" y="366">exemplar · trace_id → the trace</text>
+
+  <!-- ===================== THE MIRROR ===================== -->
+  <path class="bound" d="M40 404 H1080" stroke-dasharray="4 6" stroke-opacity=".6"/>
+  <text class="lbl" x="40" y="436">The platform half is a separate repository, drawn from the opposite side: there the applications sit outside the line</text>
+  <text class="lbl" x="40" y="454">and the collector is the thing owned. Two repositories that share nothing but OTLP demonstrate the boundary by existing.</text>
+  <text class="sm mono t-ext" x="40" y="482">terragrunt-reference-architecture · docs/images/observability-architecture.svg</text>
+</svg>
