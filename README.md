@@ -50,7 +50,13 @@ The service sets the usual resource attributes — `service.name`,
 `service.namespace`, `service.version`, `service.instance.id`,
 `deployment.environment`. It then attaches `service.name` and
 `service.namespace` **a second time, onto every HTTP metric data point**
-(`internal/api/api.go`, via otelhttp's `Labeler`).
+(`internal/obs/identity.go`, via otelhttp's `Labeler`).
+
+Every otelhttp-wrapped server in the process needs that middleware, not just the
+public API. Running the stack is what proved it: the dependency server had been
+wrapped for tracing but not for identity, so it emitted the same histogram with
+both labels empty, and the platform's aggregation rendered it as a nameless row
+carrying the dependency's latency beside the real service's. Nothing errored.
 
 That looks like a mistake. It is not, and this is the least obvious thing here.
 
