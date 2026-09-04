@@ -1,0 +1,10 @@
+# Build output
+/bin/
+/service
+
+# Go test and coverage artefacts
+*.test
+*.out
+
+# Local environment overrides
+.env
