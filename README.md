@@ -15,6 +15,35 @@ demonstrate the boundary by existing.** Nothing here imports anything there.
 Nothing there reaches into this code. They agree on a wire protocol and a
 handful of attribute names, and that is the entire contract.
 
+## The result
+
+![Grafana p99 latency panel: a green p99 line sitting near 2.4 seconds with pale green exemplar diamonds scattered below it between roughly 1.1 and 1.35 seconds, and a row of diamonds near zero](docs/images/exemplar-p99-panel.png)
+
+*The `p99 latency` panel over four minutes of synthetic traffic with a 22% slow
+tail injected. The diamonds are exemplars — each one a real sampled request
+carrying its trace id. The one picked out below sits at **1.271s**.*
+
+![Jaeger trace waterfall for trace 436c5ff: a root span GET /api/quote of 1.27 seconds containing HTTP GET, a nested GET, and pricing.lookup, plus a separate 2.85 millisecond pricing.apply_discount span](docs/images/exemplar-trace.png)
+
+*The trace you land on by clicking that diamond — trace `436c5ff5c7f896ab688bb3a5ea1f1436`,
+root span **1271.5ms**, matching the exemplar exactly. Reading down: `GET /api/quote`
+and `HTTP GET` and the nested `GET` come from `otelhttp` automatically; `pricing.lookup`
+and `pricing.apply_discount` are hand-rolled, and they are the two that say **which**
+part of the 1.27s was slow. Automatic instrumentation could not have produced them.*
+
+> The p99 **line** reads ~2.4s while the exemplars sit near 1.2s, and that gap is
+> real rather than a rendering artefact: `otelhttp`'s explicit bucket boundaries
+> jump straight from 1s to 2.5s, so `histogram_quantile` interpolates inside that
+> bucket and overshoots. The exemplars are individual observed requests and cannot
+> lie about their own duration. It is a good argument for exemplars.
+
+![The application half of the boundary: this repository owns an otelhttp-wrapped service with hand-rolled spans and a Labeler that puts service identity on metric data points, emitting OTLP across a labelled application boundary to a collector, Prometheus, Jaeger and Grafana which are not owned here](docs/images/stack.svg)
+
+*The same boundary drawn in
+[terragrunt-reference-architecture](https://github.com/bezilla/terragrunt-reference-architecture/blob/main/docs/images/observability-architecture.svg),
+from the opposite side: there the applications sit outside the line and the
+collector is the thing owned. Same convention, mirrored ownership.*
+
 ## What you get in one command
 
 ```sh
