@@ -7,17 +7,59 @@
 package faults
 
 import (
+	"encoding/json"
 	"math/rand"
 	"sync"
 	"time"
 )
 
 // Config is the injection state. Zero value is "healthy".
+//
+// The duration fields are time.Duration internally and MILLISECONDS on the
+// wire. Those are not the same number, and the difference is the whole reason
+// this type marshals itself by hand: a time.Duration is an int64 count of
+// nanoseconds, so the obvious `json:"base_latency_ms"` tag on a raw Duration
+// serialises 10ms as 10000000 under a field name that promises milliseconds.
+// The admin POST handler always read milliseconds, so the API accepted one unit
+// and reported another.
 type Config struct {
-	BaseLatency time.Duration `json:"base_latency_ms"`
-	TailLatency time.Duration `json:"tail_latency_ms"`
+	BaseLatency time.Duration `json:"-"`
+	TailLatency time.Duration `json:"-"`
 	TailPercent float64       `json:"tail_percent"`
 	ErrorRate   float64       `json:"error_rate"`
+}
+
+// wireConfig is the JSON shape: durations as whole milliseconds, matching what
+// POST /admin/inject accepts.
+type wireConfig struct {
+	BaseLatencyMS int64   `json:"base_latency_ms"`
+	TailLatencyMS int64   `json:"tail_latency_ms"`
+	TailPercent   float64 `json:"tail_percent"`
+	ErrorRate     float64 `json:"error_rate"`
+}
+
+// MarshalJSON writes the durations as milliseconds.
+func (c Config) MarshalJSON() ([]byte, error) {
+	return json.Marshal(wireConfig{
+		BaseLatencyMS: c.BaseLatency.Milliseconds(),
+		TailLatencyMS: c.TailLatency.Milliseconds(),
+		TailPercent:   c.TailPercent,
+		ErrorRate:     c.ErrorRate,
+	})
+}
+
+// UnmarshalJSON reads milliseconds, so the type round-trips through its own
+// encoding rather than through two different units.
+func (c *Config) UnmarshalJSON(b []byte) error {
+	var w wireConfig
+	if err := json.Unmarshal(b, &w); err != nil {
+		return err
+	}
+	c.BaseLatency = time.Duration(w.BaseLatencyMS) * time.Millisecond
+	c.TailLatency = time.Duration(w.TailLatencyMS) * time.Millisecond
+	c.TailPercent = w.TailPercent
+	c.ErrorRate = w.ErrorRate
+	return nil
 }
 
 // Injector is safe for concurrent use: the HTTP admin endpoint writes it while
