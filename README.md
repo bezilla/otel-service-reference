@@ -269,7 +269,7 @@ internal/api/          handlers, the Labeler middleware, the manual span
 internal/downstream/   the simulated dependency and its instrumented client
 internal/faults/       latency and error injection
 deploy/                collector, Prometheus, Jaeger, Grafana, dashboard
-.githooks/             identity and attribution gate, and its selftest
+.githooks/             identity and trailer-allowlist gate, and its selftest
 ```
 
 Everything outside `internal/obs` imports the OpenTelemetry **API** and never the
@@ -297,7 +297,7 @@ test swap in a recorder without touching business code.
 make init       # step 1 in any clone: installs the pre-push gate
 make check      # gofmt, vet, lint, race tests, hook selftest
 make check-all  # the above plus govulncheck and gitleaks: what CI enforces
-make identity   # run the attribution gate over all history
+make identity   # run the identity and trailer gate over all history
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before your first commit.

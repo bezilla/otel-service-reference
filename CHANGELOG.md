@@ -11,6 +11,29 @@ before an image is published.
 
 ## [Unreleased]
 
+### Changed
+
+- **The identity gate allowlists trailers instead of searching for vendor
+  names.** Only `Signed-off-by` carrying exactly `Paul Bezilla
+  <bezilla@protonmail.com>`, `Verified` and `Measured` may appear in a trailer
+  block; every other key is refused. The scan it replaced matched nothing across
+  207 commits of full history in all six repositories in this family. Trailers
+  are read with `git interpret-trailers --parse` — git's own definition — because
+  a `^Key:` regex would reject ordinary prose, including five lines in this
+  repository.
+- **Annotated tags are checked**, which nothing did before: the tagger must be the
+  canonical identity and the annotation body is subject to the same allowlist.
+  `v0.1.0` passes as it stands.
+- **The self-test proves both directions**, thirteen cases, and captures the
+  hook's status with `|| rc=$?` rather than reading `$?` from a bare command,
+  which is silently fatal under the `bash -eo pipefail` CI runs steps with. It is
+  exercised under `-e`, plain bash and its shebang with identical results.
+
+**History was not rewritten.** No force push, no retag. Both gates were run over
+all 34 commits and the one tag first: old accepted 34 / rejected 0, new accepted
+34 / rejected 0, disagreements 0.
+
+
 ### Added
 
 - **The service and its OpenTelemetry wiring.** An HTTP API and a simulated

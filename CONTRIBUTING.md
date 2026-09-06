@@ -34,21 +34,65 @@ git config user.name  'Paul Bezilla'
 git config user.email 'bezilla@protonmail.com'
 ```
 
-## No attribution marks, of any kind
+## The trailer allowlist
 
-Nothing in this repository references any AI assistant or vendor: not in commit
-messages, trailers, code, comments, documentation, filenames, branch names, tag
-objects, configuration or CI. No co-authorship trailers. No generated-by notes.
-No session links.
+Only three trailer keys may appear in a commit's trailer block, or in an
+annotated tag's body. Every other key is refused:
 
-The gate enforces this over the commit message *and* the tree at every commit in
-the push range — not just the tip — so a term cannot land in one commit and be
-deleted by a later one in the same push.
+| trailer | rule |
+|---|---|
+| `Signed-off-by` | must be exactly `Paul Bezilla <bezilla@protonmail.com>` |
+| `Verified` | free text |
+| `Measured` | free text |
 
-The forbidden terms are written in the hook as single-character bracket
-expressions, so the file bans terms it does not itself contain and can therefore
-scan a tree that includes it. `make test-hook` verifies the patterns still match
-their literals; do not "simplify" the brackets away.
+This replaced a scan for a list of vendor and tool names. Measured before it was
+removed: across the full history of all six repositories in this family, 207
+commits, that scan matched **nothing** — not "only its own rule text", but
+nothing at all, because the terms were written in bracket expressions so the
+file would not contain the strings it hunted for.
+
+A denylist only catches what somebody already thought to write down. It is stale
+the day a new tool ships. An allowlist inverts that: any tool that stamps
+provenance onto a commit does it through a trailer, so an unlisted key is refused
+whether or not the gate has heard of the thing that wrote it.
+
+`make test-hook` proves both directions — that the gate rejects each thing it
+claims to, and accepts each thing it claims to.
+
+### The trailer rule has one sharp edge
+
+Whether a `Key: Value` line is a trailer depends on **which paragraph it lands
+in**. git parses only the last paragraph, and only when the whole paragraph
+parses as trailers. So:
+
+```
+Add a thing                          Add a thing
+
+Verified: 3 runs, 0 failures.        Verified: 3 runs, 0 failures.
+
+And a closing paragraph.             ← nothing after it
+```
+
+The left-hand message ends in prose, so `Verified:` there is **ordinary text**
+and the gate never looks at it. The right-hand message ends with that line, so it
+**is** a trailer and its key must be on the allowlist. Same words, same spelling,
+two outcomes decided by what comes after.
+
+That is deliberate: it is git's own definition, and the definition the tools that
+stamp provenance use, which is what makes it the surface worth policing. A
+`^Key:` regex would be simpler and would reject ordinary prose — across the six
+repositories there are 53 distinct `Key: Value` shapes that are *not* trailers,
+including `So:`, `why:`, `one:` and `docs:`. Five of them are in this repository:
+`pins:`, `ships:`, `artefact:`, `diagram:`, `wanted:`.
+
+If a push is refused for a trailer you thought was prose, check whether it ended
+up in the final paragraph. A new evidence word — `Tested:`, `Confirmed:` — needs
+adding to the allowlist before it can land there. That is the accepted cost of a
+tight list.
+
+**History was not rewritten when this changed.** No force push, no retag, nothing
+dropped. Every commit and tag that existed before exists unchanged; only the rule
+applied to new pushes is different.
 
 ## Running a scan you can believe
 
@@ -178,8 +222,8 @@ locally and then push `main` directly.
 ## Staging
 
 Stage by explicit path. `git add -A` is how an unreviewed file reaches a commit,
-and in this repository an unreviewed file is how a forbidden string reaches
-published history.
+and in this repository an unreviewed file is how something you did not read
+reaches published history.
 
 ```sh
 git status              # every time, before every commit
@@ -204,7 +248,7 @@ before a push rather than in the edit cycle.
 | `build · vet · test` | gofmt, `go vet`, `go build`, `go test -race` |
 | `golangci-lint` | the linter set in `.golangci.yml`, pinned to `v2.13.1` |
 | `govulncheck` | advisories on call paths this code actually reaches, pinned to `v1.7.0` |
-| `identity` | canonical identity and no attribution strings, over all history, with `fetch-depth: 0` |
+| `identity` | canonical identity and the trailer allowlist, over all history and all tags, with `fetch-depth: 0` |
 | `gitleaks` | secrets, over full history, with `fetch-depth: 0` |
 
 The `identity` job runs the same file the pre-push hook does, in its
