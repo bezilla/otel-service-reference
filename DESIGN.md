@@ -107,6 +107,36 @@ somebody else's container. A real socket rather than an in-memory transport,
 though: `obs.Setup` takes an address and not a dialer, so faking the transport
 would stop exercising the one line a deployment actually gets wrong.
 
+### The injector is separated by a listener, not by a password
+
+**Chosen:** serve `/admin/inject` on a third listener, `ADMIN_ADDR`, defaulting
+to `:8082`.
+
+**Rejected:** an auth middleware, a path prefix a gateway could strip, and a
+`WithFilter` on the public mux.
+
+All three of the rejected options are decisions taken inside a process that has
+already accepted the connection, so each one is exactly as strong as the code
+implementing it. Anything that routes traffic to a service — a Kubernetes
+Service, a gateway, a load balancer — selects a **port**, so a port that is
+published nowhere cannot be reached whatever path is requested and whatever a
+middleware later concludes.
+
+Authentication was rejected on top of that for a reason specific to what this
+endpoint is. It exists to break the service on purpose. A credential in front of
+it does not make breaking the service safe; it means the injector is one leaked
+string away rather than zero, and it invites the endpoint to be published on the
+grounds that it is now protected.
+
+The shape is not new here either: the pricing dependency has been on its own
+unpublished listener since the beginning, for a different reason. Two listeners
+nothing routes to is one pattern.
+
+The admin mux is uninstrumented, which is a smaller decision inside the same
+one. Operator traffic is not service traffic, and recording `make slow` on the
+same histogram as `/api/quote` would draw the act of injecting latency as
+service latency, on the panel the injection exists to move.
+
 ### British English, named rather than assumed
 
 The linter configuration copied from the sibling repositories sets `misspell` to
@@ -185,6 +215,31 @@ environment it lands in is one whose dashboards move when someone edits a
 manifest — but it is the opposite of the usual assumption, which made a comment
 asserting the assumption worse than no comment at all. It is asserted over the
 exported resource now rather than described.
+
+### The injector was reachable through a public gateway
+
+Not a defect in this repository's code so much as one in the gap between two
+repositories, which is the kind this repository exists to talk about.
+
+`/admin/inject` was served on the API listener. Read on its own that is a
+documented sharp edge on a demonstration service, and it was documented. Read
+alongside the sibling platform, it was a live one: that chart's Service
+publishes exactly one port, targeting the container port named `http`, and an
+HTTPRoute points a public gateway at it. So the endpoint that sets the error
+rate to 1.0 was reachable from outside the cluster by path alone.
+
+Neither repository was wrong about itself. This one said "do not expose this
+listener"; the platform said "publish the app's port". The failure was in the
+seam, and nothing tested the seam because there is nothing there to test — the
+two repositories share a wire protocol and no code.
+
+The fix is a listener boundary rather than a check, so it holds regardless of
+what the platform later chooses to publish, and it is asserted in both
+directions because moving one route back across the line is a one-word edit
+that every other test in the package would still pass.
+
+**The lesson that stuck:** a sharp edge documented in one repository is not
+documented at all if a second repository decides the exposure.
 
 ### Nothing proved the telemetry left the process
 

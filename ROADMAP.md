@@ -35,19 +35,6 @@ whether a reference service should ship a credential-loading path it cannot
 demonstrate, or whether the honest move is to keep the local stack plaintext and
 document the delta precisely.
 
-## `/admin/inject` on its own listener
-
-The injector shares a listener with `/api/quote`, so anything that can reach the
-API can change the latency and error rate of every request after it. On a laptop
-that is fine. Deployed through the sibling platform's paved-road chart, the API
-port is published through a route and the admin path is not separately blocked.
-
-The fix is not complicated — a third listener on a port that is not in the
-Service, the way the pricing dependency is already handled — but it changes the
-`make slow` / `make errors` workflow that the README's walkthrough depends on,
-and a demonstration nobody can drive is worse than one with a documented sharp
-edge. Written down in [SECURITY.md](SECURITY.md) in the meantime.
-
 ## Logs over OTLP
 
 Currently out of scope on purpose: stdout is what a container runtime already

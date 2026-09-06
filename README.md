@@ -69,6 +69,11 @@ make logs      # JSON logs, trace_id on every line
 make down
 ```
 
+Those three talk to the fault injector, which answers on **`:8082`** and not on
+the API port. The compose stack publishes it to your laptop so they work; the
+sibling platform's chart does not publish it at all. See
+[SECURITY.md](SECURITY.md) for why that is a listener and not a password.
+
 ---
 
 ## The instrumentation, decision by decision
@@ -238,6 +243,17 @@ SERVICE_NAMESPACE=platform \
   ./service
 ```
 
+### The three listeners
+
+| variable | default | who reaches it |
+|---|---|---|
+| `API_ADDR` | `:8080` | everyone. `/api/quote` and `/healthz`; the only port a Service or gateway should publish |
+| `PRICING_ADDR` | `:8081` | this process, over loopback. The simulated dependency |
+| `ADMIN_ADDR` | `:8082` | whoever can already talk to the pod. `/admin/inject`, and nothing else |
+
+`/admin/inject` returns **404 on `:8080`**. That is the security boundary, and
+it is asserted in `internal/api/listener_test.go` rather than described.
+
 That is the entire integration. No shared library, no platform-supplied SDK
 wrapper, no code generation.
 
@@ -269,8 +285,11 @@ test swap in a recorder without touching business code.
 - **No logs over OTLP.** See §5.
 - **No production sampling.** `AlwaysSample()` is a demo choice, called out in
   the code where someone changing it will read it.
-- **No auth on `/admin/inject`.** It exists to break the service on purpose,
-  which is reason enough not to expose this anywhere.
+- **No auth on `/admin/inject`.** It exists to break the service on purpose, so
+  a password would be answering the wrong question. It is kept off the public
+  listener instead: it answers only on `ADMIN_ADDR` (`:8082`), which nothing
+  routes to. A port that is published nowhere cannot be reached whatever path is
+  requested, which is a guarantee that does not depend on this code being right.
 
 ## Development
 

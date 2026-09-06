@@ -64,12 +64,18 @@ Every one of these is fine on a laptop and would be a serious defect anywhere
 real. They are listed rather than fixed because the repository is meant to be
 read, and a reader should be able to see the whole of what it chose not to do.
 
-- **`/admin/inject` has no authentication.** It exists to break the service on
-  purpose, and it is served on the same listener as `/api/quote` — so anything
-  that can reach the API can change the latency and error rate of every request
-  after it. Do not expose this listener. If you deploy this where the API is
-  reachable and the admin path is not separately blocked, assume the injector
-  is public.
+- **`/admin/inject` has no authentication**, and will not be given any. It
+  exists to break the service on purpose; a credential would only mean the
+  injector is one leaked string away rather than zero. **Fixed in
+  `546bb32`:** it is no longer served on the public listener. It answers on
+  `ADMIN_ADDR` (`:8082`) only, returns 404 on `:8080`, and is asserted in both
+  directions in `internal/api/listener_test.go`.
+
+  It is still unauthenticated, so the exposure decision moves to whoever
+  publishes the port. Do not put `:8082` in a Service, an ingress or a load
+  balancer. The sibling platform's chart publishes exactly one port and it is
+  not this one; the local compose stack publishes it deliberately, because
+  `make slow` has to reach it from a laptop.
 - **OTLP is exported without TLS.** `WithInsecure()` is unconditional; there is
   no code path that dials a collector securely. Every real deployment needs one
   added.

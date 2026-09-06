@@ -61,6 +61,14 @@ before an image is published.
 
 ### Changed
 
+- **The fault injector moved to its own listener.** `/admin/inject` is served on
+  `ADMIN_ADDR` (`:8082`) and returns 404 on the API port. It is still
+  unauthenticated by design — it exists to break the service on purpose — so the
+  separation is a port nothing publishes rather than a credential. `make slow`,
+  `make errors` and `make reset` talk to the new port, which the compose stack
+  publishes to the host and the sibling platform's chart does not publish at
+  all. The admin mux is uninstrumented, so injecting latency no longer records
+  itself on the latency panel it exists to move.
 - **The identity middleware moved to `internal/obs` and was exported**, because
   the rule is not "the API needs this" but "every `otelhttp`-wrapped server in
   the process needs this", and a private helper made the narrower reading easy
@@ -81,6 +89,14 @@ before an image is published.
 
 ### Fixed
 
+- **The injector was reachable through a public gateway.** On its own, an
+  unauthenticated `/admin/inject` on the API listener was a documented sharp
+  edge. Deployed through the sibling platform's paved-road chart it was a live
+  one: that chart publishes one port through an HTTPRoute attached to a public
+  gateway, so anything that could reach `/api/quote` from outside the cluster
+  could set the error rate to 1.0 for every request after it. Neither repository
+  was wrong about itself; the exposure lived in the seam between them. Asserted
+  in both directions now rather than documented.
 - **The dependency server emitted a nameless series.** The pricing server was
   wrapped in `otelhttp` for tracing but never passed through the identity
   middleware, so it produced `http.server.request.duration` with both identity
@@ -112,8 +128,11 @@ before an image is published.
   the binary and nothing else — now pinned by digest, as is the build stage.
 - Advisory scanning, secret scanning and immutable third-party pins all run in
   CI on every push and pull request.
+- The fault injector is off the public listener, so the one endpoint that can
+  degrade every subsequent request is no longer reachable through the gateway
+  the sibling platform attaches to this workload.
 - [SECURITY.md](SECURITY.md) states what is worth reporting — telemetry that
-  lies, rather than the two endpoints — and lists what is deliberately unsafe
-  because this is a demonstration: `/admin/inject` has no authentication and
-  shares a listener with the API, OTLP has no TLS path, inbound `traceparent` is
-  trusted, everything is sampled, and the local stack authenticates nobody.
+  lies, rather than the two endpoints — and lists what remains deliberately
+  unsafe because this is a demonstration: OTLP has no TLS path, inbound
+  `traceparent` is trusted, everything is sampled, and the local stack
+  authenticates nobody.
