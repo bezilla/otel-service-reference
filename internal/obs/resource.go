@@ -89,7 +89,16 @@ func (c Config) MetricIdentityAttributes() []attribute.KeyValue {
 
 func newResource(ctx context.Context, c Config) (*resource.Resource, error) {
 	r, err := resource.New(ctx,
-		resource.WithFromEnv(), // OTEL_RESOURCE_ATTRIBUTES still works and wins
+		// OTEL_RESOURCE_ATTRIBUTES is read, and the keys it alone sets ride
+		// along. What it does not do is win a tie. resource.New merges its
+		// detectors in order and the last one wins, so the values below override
+		// the environment for the five keys they share.
+		//
+		// That is the useful way round -- a service cannot be silently renamed by
+		// the environment it lands in -- but it is the opposite of the usual
+		// assumption, and it used to be written down here the wrong way. It is an
+		// assertion now, in otlp_export_test.go, over the resource as exported.
+		resource.WithFromEnv(),
 		resource.WithTelemetrySDK(),
 		resource.WithAttributes(c.ResourceAttributes()...),
 	)
