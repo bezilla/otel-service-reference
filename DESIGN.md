@@ -269,8 +269,8 @@ rate to 1.0 was reachable from outside the cluster by path alone.
 
 Neither repository was wrong about itself. This one said "do not expose this
 listener"; the platform said "publish the app's port". The failure was in the
-seam, and nothing tested the seam because there is nothing there to test — the
-two repositories share a wire protocol and no code.
+seam, and neither repository tested what happened when they were deployed
+together — the two share a wire protocol and no code.
 
 The fix is a listener boundary rather than a check, so it holds regardless of
 what the platform later chooses to publish, and it is asserted in both
