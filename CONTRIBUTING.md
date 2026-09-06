@@ -50,6 +50,39 @@ expressions, so the file bans terms it does not itself contain and can therefore
 scan a tree that includes it. `make test-hook` verifies the patterns still match
 their literals; do not "simplify" the brackets away.
 
+## Running a scan you can believe
+
+Two rules. Both were learned by getting them wrong during a scan of this
+repository's history, and both are about the same thing: a zero is what a clean
+repository looks like, and it is also what a broken pipeline looks like.
+
+**Resolve every scan engine to a real path, and invoke it by that path.** Not by
+name. On the machine one of these scans ran on, `grep` was a shell function
+injected by the surrounding tooling. It answered `--version` with the name of a
+PCRE-capable tool and behaved correctly when typed at a prompt, but inside a
+`#!/usr/bin/env bash` script it fell through to BSD grep, which has no `-P` at
+all. The first two runs of the battery returned an error, then zero, for every
+pattern including ones known to match.
+
+```sh
+type -a pcre2grep                 # confirm it is a path, not a function or alias
+ENGINE=$(command -v pcre2grep)    # resolve once
+"$ENGINE" -c -- "$pattern" "$corpus"
+```
+
+**Run a canary that must match, before believing any zero.** The canonical
+identity address is the right one here: it is in this file, in `SECURITY.md` and
+in the hook, so any pipeline that cannot find it is not a pipeline.
+
+```sh
+"$ENGINE" -c -- 'bezilla@protonmail\.com' CONTRIBUTING.md   # must be non-zero
+```
+
+If the canary returns zero, every other zero from that engine is worthless.
+Run it first, and run a second, independently implemented engine alongside the
+first: two engines disagreeing is a finding, and two engines agreeing on a
+non-zero canary is what makes their zeros worth reading.
+
 ## All changes land by direct push
 
 Push to `main`, through the hook.
