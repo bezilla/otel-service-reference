@@ -70,17 +70,32 @@ ENGINE=$(command -v pcre2grep)    # resolve once
 "$ENGINE" -c -- "$pattern" "$corpus"
 ```
 
-**Run a canary that must match, before believing any zero.** The canonical
-identity address is the right one here: it is in this file, in `SECURITY.md` and
-in the hook, so any pipeline that cannot find it is not a pipeline.
+**Run a canary that must match, before believing any zero — and pick it from the
+corpus you are actually scanning.** Not from the repository in general. The
+canary's whole job is to prove that this engine, with these flags, reading these
+bytes, can still find something; a string that is present somewhere else proves
+none of that.
+
+For a scan of the whole repository the canonical identity address does the job,
+because it is in this file, in `SECURITY.md` and in the hook:
 
 ```sh
 "$ENGINE" -c -- 'bezilla@protonmail\.com' CONTRIBUTING.md   # must be non-zero
 ```
 
-If the canary returns zero, every other zero from that engine is worthless.
-Run it first, and run a second, independently implemented engine alongside the
-first: two engines disagreeing is a finding, and two engines agreeing on a
+For any narrower corpus, choose again. A scan of one pushed range used that same
+address as its canary and got zero — not because the engine was broken, but
+because within that range the address occurs only in escaped regex form inside a
+code fence, as `protonmail\.com`, so the literal string genuinely was not there.
+The canary was wrong for the corpus. Re-canarying against strings that range did
+contain (`protonmail`, `gitleaks`, `pcre2grep`, `CONTRIBUTING`) brought it back
+to life, and only then were the zeros beside it worth anything.
+
+So: **if the canary returns zero, fix the canary before believing anything
+else.** A zero canary is a statement about your setup, never about the corpus.
+Establish that the pipeline can find something, then read the zeros. Run a
+second, independently implemented engine alongside the first while you are at
+it: two engines disagreeing is a finding, and two engines agreeing on a
 non-zero canary is what makes their zeros worth reading.
 
 ### What gitleaks does not read
