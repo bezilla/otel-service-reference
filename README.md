@@ -222,9 +222,12 @@ unit suffix the collector appends.
 | `http_response_status_code` | `http.response.status_code` |
 | `service_name`, `service_namespace` | attached to the data point, per §1 |
 
-`internal/api/api_test.go` asserts all four against collected metric data. They
-are tested rather than documented because each one fails silently: no error, no
-warning, just an empty panel found during an incident.
+`internal/api/api_test.go` asserts all four against collected metric data, and
+`internal/obs/otlp_export_test.go` asserts them again over a real OTLP receiver
+— because a `ManualReader` proves the instrumentation and says nothing at all
+about whether any of it left the process. They are tested rather than documented
+because each one fails silently: no error, no warning, just an empty panel found
+during an incident.
 
 To point this service at a real collector instead of the local stack:
 
@@ -244,7 +247,8 @@ wrapper, no code generation.
 
 ```
 cmd/service/           entrypoint; runs the API and the dependency
-internal/obs/          the ONLY package importing the OTel SDK
+internal/obs/          the ONLY package importing the OTel SDK, and the
+                       OTLP export test that proves telemetry leaves
 internal/api/          handlers, the Labeler middleware, the manual span
 internal/downstream/   the simulated dependency and its instrumented client
 internal/faults/       latency and error injection
@@ -271,12 +275,20 @@ test swap in a recorder without touching business code.
 ## Development
 
 ```sh
-make init      # step 1 in any clone: installs the pre-push gate
-make check     # gofmt, vet, race tests, hook selftest
-make identity  # run the attribution gate over all history
+make init       # step 1 in any clone: installs the pre-push gate
+make check      # gofmt, vet, lint, race tests, hook selftest
+make check-all  # the above plus govulncheck and gitleaks: what CI enforces
+make identity   # run the attribution gate over all history
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before your first commit.
+
+## Documents
+
+- **[DESIGN.md](DESIGN.md)** — the decisions, the alternatives they beat, and
+  the four defects that changed how this is tested
+- [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) ·
+  [SECURITY.md](SECURITY.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 

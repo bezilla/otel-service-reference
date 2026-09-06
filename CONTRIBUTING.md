@@ -76,20 +76,38 @@ git add -- path/to/file
 ## Before you push
 
 ```sh
-make check      # gofmt, vet, race tests, hook selftest
+make check-all  # everything CI enforces
 make identity   # the gate over all of this repository's history
 ```
+
+`make check` is the fast loop — gofmt, vet, lint, race tests, hook selftest.
+`make check-all` adds govulncheck and gitleaks, which are slower and belong
+before a push rather than in the edit cycle.
 
 ### What CI runs
 
 | job | what it enforces |
 |---|---|
 | `build · vet · test` | gofmt, `go vet`, `go build`, `go test -race` |
+| `golangci-lint` | the linter set in `.golangci.yml`, pinned to `v2.13.1` |
+| `govulncheck` | advisories on call paths this code actually reaches, pinned to `v1.7.0` |
 | `identity` | canonical identity and no attribution strings, over all history, with `fetch-depth: 0` |
+| `gitleaks` | secrets, over full history, with `fetch-depth: 0` |
 
 The `identity` job runs the same file the pre-push hook does, in its
 `--all-history` mode. The hook is per-clone configuration and does not travel
-with a clone; CI is the copy nobody can forget to install.
+with a clone; CI is the copy nobody can forget to install. gitleaks runs in both
+places on purpose: the hook's copy is what stops a secret leaving a laptop, and
+the job is what runs whether or not anyone installed the hook.
+
+### Pins
+
+Actions are pinned by full commit SHA with the version in a trailing comment;
+container images are pinned by digest with the tag kept beside it, in both
+`deploy/Dockerfile` and `deploy/docker-compose.yml`. Do not replace either with
+a floating tag. Renovate watches both and writes a dependency dashboard issue —
+it never opens a pull request, because `refs/pull/N/head` is permanent and this
+repository does not acquire refs it did not write.
 
 ## Code conventions
 
@@ -100,4 +118,7 @@ with a clone; CI is the copy nobody can forget to install.
 - Tests assert on collected telemetry, not on the absence of an error. Every
   property worth testing here fails silently in production.
 - Every non-obvious decision that survived an alternative gets a note about the
-  alternative, in the code if it is local and in the README if it is structural.
+  alternative, in the code if it is local, in the README if it is structural,
+  and in [DESIGN.md](DESIGN.md) if it beat an alternative worth naming.
+- British English, in prose and in comments. `misspell` is set to the UK locale
+  and will tell you if you drift.
