@@ -4,6 +4,11 @@
 SHELL := /usr/bin/env bash
 COMPOSE := docker compose -f deploy/docker-compose.yml
 
+# Pinned, and the same versions CI runs. @latest would let a scanner or a linter
+# change between two runs of the same commit, which turns a green tree red with
+# no diff anywhere to point at.
+GOVULNCHECK_VERSION := v1.7.0
+
 .DEFAULT_GOAL := help
 
 .PHONY: help
@@ -30,12 +35,33 @@ test-hook: verify-pattern ## Alias for verify-pattern
 fmt: ## Format Go source
 	@gofmt -w cmd internal
 
+.PHONY: lint
+lint: ## Run golangci-lint, as CI runs it
+	@command -v golangci-lint >/dev/null 2>&1 \
+		|| { echo "golangci-lint is not installed: brew install golangci-lint"; exit 1; }
+	@golangci-lint run ./...
+
+.PHONY: vuln
+vuln: ## Check dependencies for advisories on paths this code reaches
+	@go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+
+.PHONY: leaks
+leaks: ## Scan the full history for secrets
+	@gitleaks git --no-banner --redact .
+
 .PHONY: check
-check: ## gofmt, vet, race tests, hook selftest
+check: ## gofmt, vet, lint, race tests, hook selftest
 	@echo "== gofmt"; test -z "$$(gofmt -l cmd internal)" || { gofmt -l cmd internal; echo "run make fmt"; exit 1; }
 	@echo "== vet";   go vet ./...
+	@echo "== lint";  $(MAKE) --no-print-directory lint
 	@echo "== test";  go test -race ./...
 	@echo "== hook";  ./.githooks/selftest.sh
+
+# Everything CI enforces. Separate from `check` because govulncheck resolves its
+# own module graph on every run, which is a slow thing to put in the loop
+# somebody runs twenty times an afternoon.
+.PHONY: check-all
+check-all: check vuln leaks ## Everything CI enforces, including the slow scans
 
 .PHONY: identity
 identity: ## Run the pre-push gate over all of this repository's history
