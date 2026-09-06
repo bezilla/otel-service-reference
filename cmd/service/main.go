@@ -91,12 +91,15 @@ func run() error {
 	go func() { errCh <- serve(apiSrv, "api", apiAddr, log) }()
 	go func() { errCh <- serve(depSrv, "pricing", depAddr, log) }()
 
+	// No service_name or service_namespace here: NewLogger already attaches
+	// both to every record. Repeating them emits the key twice in one JSON
+	// object, which is legal enough that nothing complains and ambiguous
+	// enough that consumers disagree -- encoding/json keeps the last, jq keeps
+	// the last, and several log pipelines keep the first.
 	log.Info("service up",
 		slog.String("api", apiAddr),
 		slog.String("pricing", depAddr),
-		slog.String("otlp", cfg.OTLPEndpoint),
-		slog.String("service_name", cfg.ServiceName),
-		slog.String("service_namespace", cfg.ServiceNamespace))
+		slog.String("otlp", cfg.OTLPEndpoint))
 
 	select {
 	case <-ctx.Done():
