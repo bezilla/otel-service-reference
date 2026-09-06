@@ -1,3 +1,9 @@
+# Actions are pinned by full commit SHA, not by tag. A tag is a mutable pointer
+# in somebody else's repository: v5 moves whenever its owner moves it, and an
+# action that is compromised or simply changed lands here on the next run with
+# no diff in this file. A SHA is the artifact itself. The trailing comment is
+# the human-readable version the SHA resolved to when it was written; Renovate
+# updates both together (see renovate.json5).
 name: CI
 
 on:
@@ -13,10 +19,11 @@ jobs:
     name: build · vet · test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod   # tracks go.mod; cannot drift from it
+          cache: true
       - name: gofmt
         run: |
           unformatted="$(gofmt -l cmd internal)"
@@ -34,7 +41,7 @@ jobs:
     name: identity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           # The gate checks every commit, so it needs every commit. With the
           # default shallow clone it would check one and report success.
