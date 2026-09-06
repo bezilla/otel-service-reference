@@ -81,12 +81,17 @@ func NewInjector() *Injector {
 	}}
 }
 
+// Get returns a copy of the current configuration. A copy rather than a
+// pointer: handlers read this on every request, and handing out the struct the
+// mutex guards would make the lock decorative.
 func (i *Injector) Get() Config {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	return i.cfg
 }
 
+// Set replaces the configuration wholesale. Callers that mean to change one
+// field read Get first, so a concurrent admin request cannot lose the others.
 func (i *Injector) Set(c Config) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
