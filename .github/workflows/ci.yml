@@ -92,16 +92,3 @@ jobs:
         run: ./.githooks/pre-push --all-history
       - name: prove the gate rejects and accepts what it claims
         run: ./.githooks/selftest.sh
-
-  secrets:
-    name: gitleaks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          fetch-depth: 0
-      - name: gitleaks over full history
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
-        env:
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
-          GITLEAKS_ENABLE_SUMMARY: "false"

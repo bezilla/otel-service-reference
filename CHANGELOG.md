@@ -28,6 +28,14 @@ before an image is published.
   hook's status with `|| rc=$?` rather than reading `$?` from a bare command,
   which is silently fatal under the `bash -eo pipefail` CI runs steps with. It is
   exercised under `-e`, plain bash and its shebang with identical results.
+- **The standalone `gitleaks` job is gone**; the scan lives only in the gate
+  file now. `gitleaks-action` requires a `GITHUB_TOKEN` to scan a pull request
+  and was never given one, so on every PR it failed before scanning anything —
+  and because it was not a required check, it failed where nobody had to look.
+  The `identity` job already runs `gitleaks git` over full history with
+  `fetch-depth: 0`, against the same default ruleset, so no coverage moved with
+  it. What is lost is independence: the gate's stages are sequential, and a
+  failure on identity or trailers now exits before the secrets stage runs.
 
 **History was not rewritten.** No force push, no retag. Both gates were run over
 all 34 commits and the one tag first: old accepted 34 / rejected 0, new accepted
@@ -75,8 +83,6 @@ all 34 commits and the one tag first: old accepted 34 / rejected 0, new accepted
   pinned to `v2.13.1`. Reports zero issues.
 - **`govulncheck`** pinned to `v1.7.0`, reporting only advisories on call paths
   this code reaches. Zero found.
-- **`gitleaks` as its own CI job** over full history, alongside the copy inside
-  the pre-push gate.
 - **Renovate**, with `dependencyDashboardApproval` so it writes one dashboard
   issue and never a branch or a pull request.
 - **[SECURITY.md](SECURITY.md)**, **[DESIGN.md](DESIGN.md)** and

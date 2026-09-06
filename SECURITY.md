@@ -44,9 +44,10 @@ was meant to go.
 
 ## What this repository does to stay clean
 
-- **No secrets in Git.** gitleaks runs twice — inside the pre-push gate, which
-  fails closed if the scanner is missing rather than skipping, and as its own CI
-  job over full history, which runs whether or not anyone installed the hook.
+- **No secrets in Git.** gitleaks runs over full history inside the pre-push
+  gate, which fails closed if the scanner is missing rather than skipping. CI
+  runs that same gate file in the `identity` job, so the scan happens whether or
+  not anyone installed the hook.
 - **Every third-party reference is immutable.** Actions by commit SHA,
   container images by digest in both the Dockerfile and the compose stack, the
   linter and the vulnerability scanner by version. Renovate keeps them current

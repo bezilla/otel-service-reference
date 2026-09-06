@@ -147,7 +147,8 @@ non-zero canary is what makes their zeros worth reading.
 gitleaks reports `no leaks found` over bytes it never opened. The two modes skip
 for different reasons, so neither one's coverage implies the other's.
 
-**`git` mode** — what the pre-push hook and the `gitleaks` CI job both run — skips
+**`git` mode** — what the pre-push hook runs, on a laptop and in the `identity`
+job — skips
 content that produces no text hunk. `git log -p` emits none for a binary file, so
 such a commit yields nothing to scan and is not even counted: gitleaks reports
 **29** commits where `git rev-list --count HEAD` reported 30, the missing one
@@ -248,14 +249,17 @@ before a push rather than in the edit cycle.
 | `build · vet · test` | gofmt, `go vet`, `go build`, `go test -race` |
 | `golangci-lint` | the linter set in `.golangci.yml`, pinned to `v2.13.1` |
 | `govulncheck` | advisories on call paths this code actually reaches, pinned to `v1.7.0` |
-| `identity` | canonical identity and the trailer allowlist, over all history and all tags, with `fetch-depth: 0` |
-| `gitleaks` | secrets, over full history, with `fetch-depth: 0` |
+| `identity` | canonical identity, the trailer allowlist and gitleaks over full history, over all history and all tags, with `fetch-depth: 0` |
 
 The `identity` job runs the same file the pre-push hook does, in its
 `--all-history` mode. The hook is per-clone configuration and does not travel
-with a clone; CI is the copy nobody can forget to install. gitleaks runs in both
-places on purpose: the hook's copy is what stops a secret leaving a laptop, and
-the job is what runs whether or not anyone installed the hook.
+with a clone; CI is the copy nobody can forget to install. That covers gitleaks
+too: the secrets stage is inside the gate file, so the hook's copy is what stops
+a secret leaving a laptop and the `identity` job is what scans whether or not
+anyone installed the hook. One caveat — the stages are sequential, so a push that
+fails on identity or trailers exits before the secrets stage runs. Nothing merges
+unscanned, because `identity` is a required check, but a red identity job is not
+evidence that history is clean.
 
 ### Pins
 
