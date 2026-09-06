@@ -83,6 +83,33 @@ Run it first, and run a second, independently implemented engine alongside the
 first: two engines disagreeing is a finding, and two engines agreeing on a
 non-zero canary is what makes their zeros worth reading.
 
+### What gitleaks does not read
+
+gitleaks skips binary files, in `git` mode and in `dir` mode alike, and reports
+`no leaks found` over bytes it never opened. It is visible in the commit count:
+gitleaks reports **29** where `git rev-list --count HEAD` reports 30, because
+`a6e4c05` changes only the two screenshots under `docs/images/` and so produces
+no scannable fragment for the counter to see. `gitleaks dir docs/images/`
+reports `scanned ~0 bytes`.
+
+Nothing is wrong with the tool -- there is nothing useful to regex in deflated
+pixel data. The consequence is that binary blobs are outside its coverage and
+need their own pass, which is two checks:
+
+```sh
+# 1. the PNG text chunks, where a capture tool writes a username or a software
+#    name. These files carry IHDR, IDAT and IEND only, and no tEXt/iTXt/zTXt.
+python3 -c 'import sys,struct;b=open(sys.argv[1],"rb").read();o=8
+while o+8<=len(b):
+ n=struct.unpack(">I",b[o:o+4])[0];t=b[o+4:o+8].decode();print(t);o+=12+n
+ if t=="IEND":break' docs/images/exemplar-p99-panel.png
+
+# 2. the raw bytes, through the engines above, with the same canary discipline
+"$ENGINE" -c -i --binary-files=text -- 'bezilla@protonmail\.com' docs/images/*.png
+```
+
+Add the same pass for any binary that lands here later.
+
 ## All changes land by direct push
 
 Push to `main`, through the hook.
