@@ -75,6 +75,7 @@ up: ## Start the whole stack, then print where everything is
 	@echo "  Jaeger      http://localhost:$${JAEGER_PORT:-16686}"
 	@echo "  Prometheus  http://localhost:$${PROMETHEUS_PORT:-9090}"
 	@echo "  Service     http://localhost:$${SERVICE_PORT:-8080}/api/quote"
+	@echo "  Injector    http://localhost:$${ADMIN_PORT:-8082}/admin/inject   (its own listener; see SECURITY.md)"
 	@echo
 	@echo "  Traffic is already flowing. Give it ~30s, then click a dot on the p99 panel."
 
@@ -88,20 +89,20 @@ logs: ## Follow the service logs (JSON, with trace_id on every line)
 
 .PHONY: slow
 slow: ## Make the tail worse, so the p99 panel has something to show
-	@curl -sS -X POST localhost:$${SERVICE_PORT:-8080}/admin/inject \
+	@curl -sS -X POST localhost:$${ADMIN_PORT:-8082}/admin/inject \
 		-H 'content-type: application/json' \
 		-d '{"tail_percent":0.25,"tail_latency_ms":900}' | tee /dev/stderr >/dev/null
 	@echo
 
 .PHONY: errors
 errors: ## Inject a 20% error rate, so the 5xx panel moves
-	@curl -sS -X POST localhost:$${SERVICE_PORT:-8080}/admin/inject \
+	@curl -sS -X POST localhost:$${ADMIN_PORT:-8082}/admin/inject \
 		-H 'content-type: application/json' -d '{"error_rate":0.2}' | tee /dev/stderr >/dev/null
 	@echo
 
 .PHONY: reset
 reset: ## Back to healthy
-	@curl -sS -X POST localhost:$${SERVICE_PORT:-8080}/admin/inject \
+	@curl -sS -X POST localhost:$${ADMIN_PORT:-8082}/admin/inject \
 		-H 'content-type: application/json' \
 		-d '{"error_rate":0,"tail_percent":0.04,"tail_latency_ms":400,"base_latency_ms":8}' | tee /dev/stderr >/dev/null
 	@echo
