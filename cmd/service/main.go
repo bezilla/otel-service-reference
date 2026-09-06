@@ -56,8 +56,12 @@ func run() error {
 
 	inj := faults.NewInjector()
 
+	// Three listeners, three variables, one pattern. The public API is the only
+	// one anything routes to; the other two are reachable only by something that
+	// can already talk to this process directly.
 	apiAddr := envOr("API_ADDR", ":8080")
 	depAddr := envOr("PRICING_ADDR", ":8081")
+	adminAddr := envOr("ADMIN_ADDR", ":8082")
 	depURL := envOr("PRICING_URL", "http://localhost:8081")
 
 	srv := &api.Server{
@@ -87,9 +91,19 @@ func run() error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	errCh := make(chan error, 2)
+	// The injector, on a listener of its own. It breaks the service on purpose
+	// and has no authentication, so the thing standing between it and the world
+	// is that nothing publishes this port -- not a check this code performs.
+	adminSrv := &http.Server{
+		Addr:              adminAddr,
+		Handler:           srv.AdminRoutes(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	errCh := make(chan error, 3)
 	go func() { errCh <- serve(apiSrv, "api", apiAddr, log) }()
 	go func() { errCh <- serve(depSrv, "pricing", depAddr, log) }()
+	go func() { errCh <- serve(adminSrv, "admin", adminAddr, log) }()
 
 	// No service_name or service_namespace here: NewLogger already attaches
 	// both to every record. Repeating them emits the key twice in one JSON
@@ -99,6 +113,7 @@ func run() error {
 	log.Info("service up",
 		slog.String("api", apiAddr),
 		slog.String("pricing", depAddr),
+		slog.String("admin", adminAddr),
 		slog.String("otlp", cfg.OTLPEndpoint))
 
 	select {
@@ -112,7 +127,7 @@ func run() error {
 
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return errors.Join(apiSrv.Shutdown(shutCtx), depSrv.Shutdown(shutCtx))
+	return errors.Join(apiSrv.Shutdown(shutCtx), depSrv.Shutdown(shutCtx), adminSrv.Shutdown(shutCtx))
 }
 
 func serve(s *http.Server, name, addr string, log *slog.Logger) error {

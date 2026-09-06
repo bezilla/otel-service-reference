@@ -32,7 +32,9 @@ func TestInjectRoundTripsInMilliseconds(t *testing.T) {
 		Pricing:  downstream.NewClient(dep.URL),
 		Injector: inj,
 	}
-	ts := httptest.NewServer(srv.Routes())
+	// The injector lives on the admin listener now, so this drives AdminRoutes.
+	// listener_test.go is what asserts it is NOT on the public one.
+	ts := httptest.NewServer(srv.AdminRoutes())
 	t.Cleanup(ts.Close)
 
 	sent := map[string]any{

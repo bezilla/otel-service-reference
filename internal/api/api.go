@@ -35,19 +35,21 @@ func tracer() trace.Tracer {
 	return otel.Tracer("github.com/bezilla/otel-service-reference/internal/api")
 }
 
-// Routes builds the API mux, wrapped in otelhttp.
+// Routes builds the PUBLIC API mux, wrapped in otelhttp.
 //
 // otelhttp gives the HTTP-layer span and the http.server.* metrics for free.
 // What it cannot give is a span around the part of the request that is specific
 // to this service, because it does not know what that is. That is the division
 // of labour between automatic and manual instrumentation, and both handlers
 // below show it.
+//
+// The injector is deliberately NOT here. It lives on its own listener, built by
+// AdminRoutes, so that a request arriving on this one cannot reach it -- see the
+// comment there for why that is a listener boundary rather than a middleware.
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/quote", s.handleQuote)
 	mux.HandleFunc("GET /healthz", s.handleHealth)
-	mux.HandleFunc("POST /admin/inject", s.handleInject)
-	mux.HandleFunc("GET /admin/inject", s.handleInjectGet)
 
 	// The order matters: identityMiddleware must run INSIDE otelhttp, because
 	// the Labeler it writes to is put into the context by otelhttp's handler.
@@ -61,6 +63,34 @@ func (s *Server) Routes() http.Handler {
 		}),
 	)
 	return instrumented
+}
+
+// AdminRoutes builds the mux for the fault injector, which is served on its own
+// listener and never on the public one.
+//
+// A separate listener rather than a path prefix, an auth middleware or a filter,
+// because those are all decisions made INSIDE a process that has already
+// accepted the connection. Anything routing traffic to this service -- a
+// Kubernetes Service, a gateway, a load balancer -- selects a port, so a port
+// that is published nowhere cannot be reached no matter what path is requested
+// or what a middleware later decides. That property does not depend on this
+// code being correct, which is the point of choosing it.
+//
+// The concrete reason: this service is deployed through a chart whose Service
+// publishes exactly one port and targets the container port named `http`. The
+// injector on the API listener was therefore reachable through the public
+// gateway by path alone. On a third port it is reachable only by someone who
+// can already talk to the pod directly.
+//
+// Uninstrumented, on purpose. Operator traffic is not service traffic: putting
+// `make slow` on the same histogram as /api/quote would draw the act of
+// injecting latency as service latency, on the very panel the injection exists
+// to move.
+func (s *Server) AdminRoutes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /admin/inject", s.handleInject)
+	mux.HandleFunc("GET /admin/inject", s.handleInjectGet)
+	return mux
 }
 
 type quoteResponse struct {
