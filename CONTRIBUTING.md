@@ -100,30 +100,68 @@ non-zero canary is what makes their zeros worth reading.
 
 ### What gitleaks does not read
 
-gitleaks skips binary files, in `git` mode and in `dir` mode alike, and reports
-`no leaks found` over bytes it never opened. It is visible in the commit count:
-gitleaks reports **29** where `git rev-list --count HEAD` reports 30, because
-`a6e4c05` changes only the two screenshots under `docs/images/` and so produces
-no scannable fragment for the counter to see. `gitleaks dir docs/images/`
-reports `scanned ~0 bytes`.
+gitleaks reports `no leaks found` over bytes it never opened. The two modes skip
+for different reasons, so neither one's coverage implies the other's.
 
-Nothing is wrong with the tool -- there is nothing useful to regex in deflated
-pixel data. The consequence is that binary blobs are outside its coverage and
-need their own pass, which is two checks:
+**`git` mode** — what the pre-push hook and the `gitleaks` CI job both run — skips
+content that produces no text hunk. `git log -p` emits none for a binary file, so
+such a commit yields nothing to scan and is not even counted: gitleaks reports
+**29** commits where `git rev-list --count HEAD` reported 30, the missing one
+being `a6e4c05`, whose entire diff is the two screenshots below.
+
+**`dir` mode** skips by **file extension**, not by content. Proved on identical
+bytes: the same 7,730-byte XML scans as 0 bytes named `stack.svg` and as 7,730
+bytes named `stack.txt`; conversely PNG bytes named `trace.txt` scan as 48,321.
+So `dir` mode reads binary content under an extension it does not exclude, and
+refuses text under one it does — `gitleaks dir docs/images/` reports
+`scanned ~0 bytes` even though an SVG is sitting in there.
+
+#### The inventory
+
+Established with git's own binary detection (`--numstat` reporting `-`/`-`) over
+every commit on every ref, cross-checked against an empty-tree diff at HEAD and a
+NUL-byte sniff of all 71 blobs in the object database. All three agree.
+
+| file | size | introduced | `git` mode | `dir` mode |
+|---|---|---|---|---|
+| `docs/images/exemplar-p99-panel.png` | 27,369 B | `a6e4c05` | not read | not read |
+| `docs/images/exemplar-trace.png` | 48,321 B | `a6e4c05` | not read | not read |
+| `docs/images/stack.svg` | 7,730 B | `34e4ce2` | **read** | not read (extension) |
+
+Two binary files, both PNGs, both still at HEAD; nothing has ever been deleted or
+renamed away, so the historical set and the HEAD set are the same 38 paths. The
+SVG is not binary and `git` mode does read it, which is why it is not a history
+gap — but it is invisible to `dir` mode, and that is worth knowing before quoting
+a `dir` scan as coverage.
+
+#### The pass those files need instead
+
+Nothing is wrong with the tool; there is nothing useful to regex in deflated
+pixel data. It just means binary blobs need their own check. Both PNGs have had
+it, and both are clean: chunk list `IHDR`/`IDAT`/`IEND` only — no `tEXt`,
+`iTXt`, `zTXt`, `eXIf` or `iCCP`, which is where a capture tool writes a
+username, a hostname or its own name; trufflehog `filesystem` returning nothing;
+and a raw-byte scan through both engines returning zero for attribution terms,
+addresses, `/Users/` and `/home/` paths, `.internal`/`.corp`/`.lan`, RFC1918
+addresses, AWS and GCP key shapes, PEM headers and ARNs.
 
 ```sh
-# 1. the PNG text chunks, where a capture tool writes a username or a software
-#    name. These files carry IHDR, IDAT and IEND only, and no tEXt/iTXt/zTXt.
+# 1. chunk inventory -- anything beyond IHDR/IDAT/IEND deserves reading
 python3 -c 'import sys,struct;b=open(sys.argv[1],"rb").read();o=8
 while o+8<=len(b):
  n=struct.unpack(">I",b[o:o+4])[0];t=b[o+4:o+8].decode();print(t);o+=12+n
  if t=="IEND":break' docs/images/exemplar-p99-panel.png
 
-# 2. the raw bytes, through the engines above, with the same canary discipline
-"$ENGINE" -c -i --binary-files=text -- 'bezilla@protonmail\.com' docs/images/*.png
+# 2. trufflehog, which does read binary
+trufflehog filesystem docs/images/ --json --no-update
+
+# 3. the raw bytes through both engines. Canary from THIS corpus, per the rule
+#    above -- the identity address is not in a PNG, so it would prove nothing.
+"$ENGINE" -c --binary-files=text -- 'IHDR' docs/images/exemplar-trace.png  # non-zero
+"$ENGINE" -c -i --binary-files=text -- "$pattern" docs/images/*.png
 ```
 
-Add the same pass for any binary that lands here later.
+Run all three for any binary that lands here later, and add it to the table.
 
 ## All changes land by direct push
 
