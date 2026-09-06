@@ -244,22 +244,53 @@ before a push rather than in the edit cycle.
 
 ### What CI runs
 
-| job | what it enforces |
-|---|---|
-| `build · vet · test` | gofmt, `go vet`, `go build`, `go test -race` |
-| `golangci-lint` | the linter set in `.golangci.yml`, pinned to `v2.13.1` |
-| `govulncheck` | advisories on call paths this code actually reaches, pinned to `v1.7.0` |
-| `identity` | canonical identity, the trailer allowlist and gitleaks over full history, over all history and all tags, with `fetch-depth: 0` |
+| job | what it enforces | required |
+|---|---|---|
+| `build · vet · test` | gofmt, `go vet`, `go build`, `go test -race` | yes |
+| `golangci-lint` | the linter set in `.golangci.yml`, pinned to `v2.13.1` | yes |
+| `identity` | canonical identity, the trailer allowlist and gitleaks over full history, over all history and all tags, with `fetch-depth: 0` | yes |
+| `govulncheck` | advisories on call paths this code actually reaches, pinned to `v1.7.0` | no — see below |
 
 The `identity` job runs the same file the pre-push hook does, in its
 `--all-history` mode. The hook is per-clone configuration and does not travel
 with a clone; CI is the copy nobody can forget to install. That covers gitleaks
 too: the secrets stage is inside the gate file, so the hook's copy is what stops
 a secret leaving a laptop and the `identity` job is what scans whether or not
-anyone installed the hook. One caveat — the stages are sequential, so a push that
-fails on identity or trailers exits before the secrets stage runs. Nothing merges
-unscanned, because `identity` is a required check, but a red identity job is not
-evidence that history is clean.
+anyone installed the hook.
+
+#### What a green `identity` job means
+
+Three gates, one job, run in order: identity, then trailers, then secrets. Green
+means all three passed. **Red names only the first failure.** The script exits on
+it, so a job that failed on a wrong committer never reached the secrets stage —
+and a red `identity` does not distinguish *gitleaks found something* from
+*gitleaks never ran*. Read the log for which stage spoke, rather than treating
+the job as a secrets result.
+
+This is the cost of folding the standalone `gitleaks` job in, and it is worth
+naming because the reverse reading is the tempting one: the secrets scan is no
+longer an independent signal that survives an identity failure. Nothing reaches
+`main` unscanned regardless, because `identity` is required and cannot be green
+without the secrets stage having run.
+
+#### Required and advisory
+
+`build · vet · test`, `golangci-lint` and `identity` are required checks; branch
+protection will not merge without them. `govulncheck` is advisory on purpose.
+
+It resolves its advisory database over the network at run time, so its verdict is
+a function of the world on the day it ran, not of this repository. A new advisory
+against a path this code already reached turns `main` red with nothing here having
+changed — a required check that a third party can fail on your behalf, on a commit
+that was green an hour earlier. Pinning the scanner to `v1.7.0` fixes the tool, not
+the data it downloads. So it runs on every push and every pull request, and a
+finding is a thing to go read rather than a thing that blocks the merge queue.
+
+Secrets do not get that treatment. The gitleaks stage is inside `identity`, which
+is required, and it fails closed when the scanner is missing. The asymmetry is
+deliberate: a secret in history is a fact about this repository that is true
+whenever anyone looks, and the ruleset is carried in the pinned binary rather than
+fetched, so the scan cannot change its mind overnight.
 
 ### Pins
 
