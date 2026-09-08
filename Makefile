@@ -24,12 +24,9 @@ init: ## Step 1 for any clone: install the pre-push gate
 		|| { echo "gitleaks is not installed. The pre-push gate fails closed without it: brew install gitleaks"; exit 1; }
 	@echo "pre-push gate installed"
 
-.PHONY: verify-pattern
-verify-pattern: ## Prove the hook's bracket patterns still match their literals
-	@./.githooks/selftest.sh
-
 .PHONY: test-hook
-test-hook: verify-pattern ## Alias for verify-pattern
+test-hook: ## Prove the gate rejects and accepts what it claims to
+	@./.githooks/selftest.sh
 
 .PHONY: fmt
 fmt: ## Format Go source
