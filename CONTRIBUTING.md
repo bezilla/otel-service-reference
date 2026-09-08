@@ -45,9 +45,6 @@ annotated tag's body. Every other key is refused:
 | `Verified` | free text |
 | `Measured` | free text |
 
-This replaced a name-based denylist over commit messages. Its names were written
-in bracket expressions so the file would not contain the strings it matched on.
-
 A denylist can only refuse what somebody already thought to write down, and the
 set of keys that do not exist yet cannot be enumerated. An allowlist inverts
 that: refusal is on the key, so an unlisted key is refused whether or not the
