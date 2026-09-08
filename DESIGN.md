@@ -143,28 +143,25 @@ service latency, on the panel the injection exists to move.
 the canonical identity, `Verified` and `Measured` carrying free text, every other
 key refused.
 
-**Rejected:** the scan this replaced, which searched every commit message and
-every tree in the push range for a list of vendor and tool names.
+**Rejected:** the name-based denylist this replaced, which matched every commit
+message and every tree in the push range against a fixed list of names.
 
-Measured before removing it: across the full history of all six repositories in
-this family, 207 commits, that search matched **nothing**. Zero in messages, zero
-in blobs, zero files flagged. It had never caught anything, and by construction it
-only ever could have caught what somebody had already thought to write down.
+By construction it could only ever have caught what somebody had already thought
+to write down.
 
-Any tool that stamps provenance onto a commit does it through a trailer, so the
-trailer block is the surface worth policing. An unlisted key is refused for being
-unlisted rather than surviving because nobody added it to a list — which is the
-difference between a rule that holds for a tool shipping next week and one that
-does not.
+The trailer block is the surface the rule applies to. An unlisted key is refused
+for being unlisted rather than surviving because nobody added it to a list —
+which is the difference between a rule that holds for a key nobody has written
+yet and one that does not.
 
 **Trailers are read with `git interpret-trailers --parse`, not a regex.** That is
 git's own definition: the last paragraph, and only when the whole paragraph parses
 as trailers. It has an edge worth knowing — whether a `Key: Value` line is a
 trailer depends on which paragraph it lands in, so `Verified: ...` followed by
 more prose is ordinary text and the same line at the end is a trailer. A `^Key:`
-regex would have rejected commits in all six repositories on the day it shipped;
-five lines in this one alone (`pins:`, `ships:`, `artefact:`, `diagram:`,
-`wanted:`) are prose of exactly that shape.
+regex would have rejected commits here on the day it shipped; twelve lines in
+this repository (`pins:`, `ships:`, `artefact:`, `diagram:` and `wanted:` among
+them) are prose of exactly that shape.
 
 Annotated tags are checked now, which nothing did before: the tagger must be the
 canonical identity and the annotation body goes through the same allowlist,
@@ -172,8 +169,7 @@ because otherwise a tag is a place to put a trailer the commit gate refused.
 
 Identity, scope and gitleaks are unchanged — author and committer both canonical,
 `refs/heads` and `refs/tags` and deliberately not `refs/remotes` or `refs/pull`,
-gitleaks still failing closed. **History was not rewritten.** Both gates were run
-over all 34 commits and the one tag before the change landed: old accepted 34,
+gitleaks still failing closed. Both gates were run over all 34 commits and the one tag before the change landed: old accepted 34,
 new accepted 34, and the count the old gate accepts and the new one refuses is 0.
 
 ### British English, named rather than assumed

@@ -45,16 +45,13 @@ annotated tag's body. Every other key is refused:
 | `Verified` | free text |
 | `Measured` | free text |
 
-This replaced a scan for a list of vendor and tool names. Measured before it was
-removed: across the full history of all six repositories in this family, 207
-commits, that scan matched **nothing** — not "only its own rule text", but
-nothing at all, because the terms were written in bracket expressions so the
-file would not contain the strings it hunted for.
+This replaced a name-based denylist over commit messages. Its names were written
+in bracket expressions so the file would not contain the strings it matched on.
 
-A denylist only catches what somebody already thought to write down. It is stale
-the day a new tool ships. An allowlist inverts that: any tool that stamps
-provenance onto a commit does it through a trailer, so an unlisted key is refused
-whether or not the gate has heard of the thing that wrote it.
+A denylist can only refuse what somebody already thought to write down, and the
+set of keys that do not exist yet cannot be enumerated. An allowlist inverts
+that: refusal is on the key, so an unlisted key is refused whether or not the
+gate has heard of it.
 
 `make test-hook` proves both directions — that the gate rejects each thing it
 claims to, and accepts each thing it claims to.
@@ -78,12 +75,11 @@ and the gate never looks at it. The right-hand message ends with that line, so i
 **is** a trailer and its key must be on the allowlist. Same words, same spelling,
 two outcomes decided by what comes after.
 
-That is deliberate: it is git's own definition, and the definition the tools that
-stamp provenance use, which is what makes it the surface worth policing. A
-`^Key:` regex would be simpler and would reject ordinary prose — across the six
-repositories there are 53 distinct `Key: Value` shapes that are *not* trailers,
-including `So:`, `why:`, `one:` and `docs:`. Five of them are in this repository:
-`pins:`, `ships:`, `artefact:`, `diagram:`, `wanted:`.
+That is deliberate: it is git's own definition, which is what makes the trailer
+block the surface the rule applies to. A `^Key:` regex would be simpler and would
+reject ordinary prose — this repository's own messages carry twelve `Key: Value`
+shapes that are *not* trailers, including `pins:`, `ships:`, `artefact:`,
+`diagram:` and `wanted:`.
 
 If a push is refused for a trailer you thought was prose, check whether it ended
 up in the final paragraph. A new evidence word — `Tested:`, `Confirmed:` — needs
@@ -95,29 +91,19 @@ tight list.
 Two things pass this gate that an earlier version of it would have stopped. Both
 are the deliberate reduction, not an oversight.
 
-**A vendor or tool name in the body of a message.** The allowlist reads the
-trailer block and nothing else, so such a name written in a paragraph of prose is
-ordinary text and is accepted. Attribution is stamped as a trailer, and an
-unlisted key is refused whether or not the gate has heard of the tool that wrote
-it — a stronger guarantee than a name list can give, because it does not need
-updating when a new tool ships. Matching words in prose is a different job, and
-the denylist that did it matched nothing across the full history of every
-repository in this family.
+**Anything in the body of a message.** The gate's scope is the trailer block: it
+reads that and nothing else, so a `Key: Value` shape written in a paragraph of
+prose is ordinary text and is accepted. Refusing on the key is what makes the
+rule hold — an unlisted key is refused whether or not the gate has heard of it,
+which a name list cannot promise, because it needs updating every time an
+unanticipated name appears. Matching words in prose is a different job, and this
+gate does not do it.
 
-**Anything in the working tree.** Nothing greps the checkout for vendor names.
+**Anything in the working tree.** Nothing greps the checkout.
 Hand-written hooks under `.git/hooks/` once did, and `core.hooksPath` makes git
 ignore that directory entirely, so any that survive there are inert. They have
-not been restored and should not be: it is the same scan with the same zero
-matches, and it walked build artefacts, so a full validation run could leave a
-clean tree unpushable.
-
-The same trade is taken in every repository that shares this gate. Consistency
-across them is the property worth keeping — a one-repository exception would be
-the defect, not the fix.
-
-**History was not rewritten when this changed.** No force push, no retag, nothing
-dropped. Every commit and tag that existed before exists unchanged; only the rule
-applied to new pushes is different.
+not been restored and should not be: it is the same scan, and it walked build
+artefacts, so a full validation run could leave a clean tree unpushable.
 
 ## Running a scan you can believe
 
@@ -211,8 +197,7 @@ pixel data. It just means binary blobs need their own check. Both PNGs have had
 it, and both are clean: chunk list `IHDR`/`IDAT`/`IEND` only — no `tEXt`,
 `iTXt`, `zTXt`, `eXIf` or `iCCP`, which is where a capture tool writes a
 username, a hostname or its own name; trufflehog `filesystem` returning nothing;
-and a raw-byte scan through both engines returning zero for attribution terms,
-addresses, `/Users/` and `/home/` paths, `.internal`/`.corp`/`.lan`, RFC1918
+and a raw-byte scan through both engines returning zero for addresses, `/Users/` and `/home/` paths, `.internal`/`.corp`/`.lan`, RFC1918
 addresses, AWS and GCP key shapes, PEM headers and ARNs.
 
 ```sh

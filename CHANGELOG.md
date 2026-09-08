@@ -13,14 +13,15 @@ before an image is published.
 
 ### Changed
 
-- **The identity gate allowlists trailers instead of searching for vendor
-  names.** Only `Signed-off-by` carrying exactly `Paul Bezilla
+- The commit identity and trailer policy documentation was consolidated and
+  reworded. No gate, workflow or hook changed behaviour.
+
+- **The identity gate allowlists trailers instead of matching them against a
+  name list.** Only `Signed-off-by` carrying exactly `Paul Bezilla
   <bezilla@protonmail.com>`, `Verified` and `Measured` may appear in a trailer
-  block; every other key is refused. The scan it replaced matched nothing across
-  207 commits of full history in all six repositories in this family. Trailers
-  are read with `git interpret-trailers --parse` — git's own definition — because
-  a `^Key:` regex would reject ordinary prose, including five lines in this
-  repository.
+  block; every other key is refused. Trailers are read with
+  `git interpret-trailers --parse` — git's own definition — because a `^Key:`
+  regex would reject ordinary prose, including twelve lines in this repository.
 - **Annotated tags are checked**, which nothing did before: the tagger must be the
   canonical identity and the annotation body is subject to the same allowlist.
   `v0.1.0` passes as it stands.
